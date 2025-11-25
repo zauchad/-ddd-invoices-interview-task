@@ -6,6 +6,7 @@ namespace Modules\Invoices\Application\Services;
 
 use Exception;
 use Ramsey\Uuid\Uuid;
+use Modules\Invoices\Api\Dtos\CreateInvoiceDto;
 use Modules\Invoices\Domain\Enums\StatusEnum;
 use Modules\Invoices\Domain\Models\Invoice;
 use Modules\Invoices\Domain\Models\InvoiceProductLine;
@@ -16,37 +17,34 @@ use Modules\Notifications\Api\NotificationFacadeInterface;
 class InvoiceService
 {
     public function __construct(
-        private InvoiceRepositoryInterface $invoiceRepository,
-        private NotificationFacadeInterface $notificationFacade
+        private readonly InvoiceRepositoryInterface $invoiceRepository,
+        private readonly NotificationFacadeInterface $notificationFacade
     ) {}
 
-    public function createInvoice(array $data): Invoice
+    public function createInvoice(CreateInvoiceDto $data): Invoice
     {
         $invoice = new Invoice([
-            'customer_name' => $data['customer_name'],
-            'customer_email' => $data['customer_email'],
+            'customer_name' => $data->customerName,
+            'customer_email' => $data->customerEmail,
             'status' => StatusEnum::Draft,
         ]);
 
-        // Persist root first to get ID for lines (standard Eloquent flow)
+        // Persist root first (needed for ID generation in standard Eloquent)
         $this->invoiceRepository->save($invoice);
 
-        $lines = [];
-        foreach ($data['product_lines'] ?? [] as $lineData) {
-            $lines[] = new InvoiceProductLine([
-                'name' => $lineData['name'],
-                'quantity' => $lineData['quantity'],
-                'price' => $lineData['price'],
-            ]);
-        }
+        // Create lines efficiently using array_map
+        $lines = array_map(
+            fn ($lineDto) => new InvoiceProductLine([
+                'name' => $lineDto->name,
+                'quantity' => $lineDto->quantity,
+                'price' => $lineDto->price,
+            ]),
+            $data->productLines
+        );
 
-        // Associate and save lines
         $invoice->productLines()->saveMany($lines);
 
-        // Reload relationship to ensure consistency in return value
-        $invoice->load('productLines');
-
-        return $invoice;
+        return $invoice->load('productLines');
     }
 
     public function getInvoice(string $id): ?Invoice
@@ -54,9 +52,7 @@ class InvoiceService
         return $this->invoiceRepository->find($id);
     }
 
-    /**
-     * @throws Exception
-     */
+    /** @throws Exception */
     public function sendInvoice(string $id): void
     {
         $invoice = $this->invoiceRepository->find($id);
@@ -65,15 +61,13 @@ class InvoiceService
             throw new Exception("Invoice not found");
         }
 
-        // 1. Domain Logic: Check invariants and update state
+        // 1. Enforce Domain Rules & State Transition
         $invoice->markAsSending();
         
-        // 2. Persist State Change
+        // 2. Persist Change
         $this->invoiceRepository->save($invoice);
 
-        // 3. Side Effects (Notification)
-        // Note: Ideally this should be an event (InvoiceSending) that a listener handles,
-        // but calling the Facade here is acceptable for this scope.
+        // 3. Handle Side Effects
         $this->notificationFacade->notify(new NotifyData(
             resourceId: Uuid::fromString($invoice->id),
             toEmail: $invoice->customer_email,

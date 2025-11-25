@@ -38,19 +38,14 @@ class Invoice extends Model
         return $this->hasMany(InvoiceProductLine::class);
     }
 
-    /**
-     * Calculate the total price of the invoice.
-     */
     public function getTotalPrice(): int
     {
         return $this->productLines->sum(fn (InvoiceProductLine $line) => $line->getTotalUnitPrice());
     }
 
     /**
-     * Domain Behavior: Transition to Sending state.
-     * Encapsulates all invariants required for this transition.
-     *
-     * @throws Exception If invariants are violated.
+     * Transition to 'Sending' state if all invariants are met.
+     * @throws Exception
      */
     public function markAsSending(): void
     {
@@ -62,17 +57,20 @@ class Invoice extends Model
             throw new Exception("Invoice must have product lines to be sent");
         }
 
-        foreach ($this->productLines as $line) {
-            if ($line->quantity <= 0 || $line->price <= 0) {
-                throw new Exception("All product lines must have positive quantity and price");
-            }
+        // Ensure all lines are valid (quantity > 0, price > 0)
+        $hasInvalidLines = $this->productLines->contains(
+            fn (InvoiceProductLine $line) => $line->quantity <= 0 || $line->price <= 0
+        );
+
+        if ($hasInvalidLines) {
+            throw new Exception("All product lines must have positive quantity and price");
         }
 
         $this->status = StatusEnum::Sending;
     }
 
     /**
-     * Domain Behavior: Transition to SentToClient state.
+     * Transition to 'SentToClient' state (idempotent).
      */
     public function markAsSentToClient(): void
     {
