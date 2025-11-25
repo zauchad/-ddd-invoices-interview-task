@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Modules\Invoices\Infrastructure\Providers;
 
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Modules\Invoices\Application\Listeners\InvoiceDeliveredListener;
 use Modules\Invoices\Domain\Repositories\InvoiceRepositoryInterface;
 use Modules\Invoices\Infrastructure\Repositories\EloquentInvoiceRepository;
+use Modules\Notifications\Api\Events\ResourceDeliveredEvent;
 
 class InvoiceServiceProvider extends ServiceProvider
 {
@@ -17,6 +20,6 @@ class InvoiceServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // Routes will be loaded here in a later phase
+        Event::listen(ResourceDeliveredEvent::class, InvoiceDeliveredListener::class);
     }
 }
