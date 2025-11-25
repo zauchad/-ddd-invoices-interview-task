@@ -29,10 +29,7 @@ class InvoiceService
             'status' => StatusEnum::Draft,
         ]);
 
-        // Persist root first (needed for ID generation in standard Eloquent)
-        $this->invoiceRepository->save($invoice);
-
-        // Create lines efficiently using array_map
+        // Create lines in memory
         $lines = array_map(
             fn ($lineDto) => new InvoiceProductLine([
                 'name' => $lineDto->name,
@@ -42,9 +39,15 @@ class InvoiceService
             $data->productLines
         );
 
-        $invoice->productLines()->saveMany($lines);
+        // Associate lines with the invoice in memory
+        // We use setRelation so Eloquent knows about them
+        $invoice->setRelation('productLines', collect($lines));
 
-        return $invoice->load('productLines');
+        // Persist the entire aggregate (Invoice + Lines) via the Repository
+        // The repository implementation (using push()) will handle saving both
+        $this->invoiceRepository->save($invoice);
+
+        return $invoice;
     }
 
     public function getInvoice(string $id): ?Invoice

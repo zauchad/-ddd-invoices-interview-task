@@ -9,7 +9,6 @@ use Modules\Invoices\Api\Dtos\CreateInvoiceDto;
 use Modules\Invoices\Application\Services\InvoiceService;
 use Modules\Invoices\Domain\Enums\StatusEnum;
 use Modules\Invoices\Domain\Models\Invoice;
-use Modules\Invoices\Domain\Models\InvoiceProductLine;
 use Modules\Invoices\Domain\Repositories\InvoiceRepositoryInterface;
 use Modules\Notifications\Api\NotificationFacadeInterface;
 use PHPUnit\Framework\TestCase;
@@ -44,27 +43,31 @@ class InvoiceServiceTest extends TestCase
             productLines: []
         );
 
-        // Mock the save for the invoice
+        // Expect save to be called once with an Invoice that is Draft
         $this->invoiceRepository->shouldReceive('save')
             ->once()
             ->withArgs(function ($arg) {
                 return $arg instanceof Invoice && $arg->status === StatusEnum::Draft;
             });
 
-        $this->invoiceService->createInvoice($dto);
+        $invoice = $this->invoiceService->createInvoice($dto);
+
+        $this->assertEquals(StatusEnum::Draft, $invoice->status);
     }
 
     public function test_send_invoice_throws_if_not_draft(): void
     {
         $invoice = Mockery::mock(Invoice::class)->makePartial();
         $invoice->status = StatusEnum::SentToClient;
-        $invoice->id = Uuid::uuid4()->toString();
+        
+        $id = Uuid::uuid4()->toString();
+        $invoice->id = $id;
 
-        $this->invoiceRepository->shouldReceive('find')->andReturn($invoice);
+        $this->invoiceRepository->shouldReceive('find')->with($id)->andReturn($invoice);
 
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage("Invoice must be in draft status to be sent");
 
-        $this->invoiceService->sendInvoice($invoice->id);
+        $this->invoiceService->sendInvoice($id);
     }
 }
