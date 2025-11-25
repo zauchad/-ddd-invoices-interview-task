@@ -44,8 +44,10 @@ class Invoice extends Model
     }
 
     /**
-     * Transition to 'Sending' state if all invariants are met.
-     * @throws Exception
+     * Domain Behavior: Transition to 'Sending' state.
+     * Encapsulates all invariants required for this transition to ensure data integrity.
+     * 
+     * @throws Exception If invariants (Draft status, non-empty valid lines) are violated.
      */
     public function markAsSending(): void
     {
@@ -57,7 +59,7 @@ class Invoice extends Model
             throw new Exception("Invoice must have product lines to be sent");
         }
 
-        // Ensure all lines are valid (quantity > 0, price > 0)
+        // Invariant: All lines must have positive quantity and price
         $hasInvalidLines = $this->productLines->contains(
             fn (InvoiceProductLine $line) => $line->quantity <= 0 || $line->price <= 0
         );
@@ -70,7 +72,8 @@ class Invoice extends Model
     }
 
     /**
-     * Transition to 'SentToClient' state (idempotent).
+     * Domain Behavior: Transition to 'SentToClient' state.
+     * This is an idempotent operation based on the delivery event.
      */
     public function markAsSentToClient(): void
     {

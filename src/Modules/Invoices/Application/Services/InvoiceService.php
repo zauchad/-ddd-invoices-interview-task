@@ -23,13 +23,17 @@ class InvoiceService
 
     public function createInvoice(CreateInvoiceDto $data): Invoice
     {
+        // Initialize the aggregate root
         $invoice = new Invoice([
             'customer_name' => $data->customerName,
             'customer_email' => $data->customerEmail,
             'status' => StatusEnum::Draft,
         ]);
 
-        // Create lines in memory
+        // Persist root first (needed for ID generation in standard Eloquent flow)
+        $this->invoiceRepository->save($invoice);
+
+        // Create line items efficiently
         $lines = array_map(
             fn ($lineDto) => new InvoiceProductLine([
                 'name' => $lineDto->name,
@@ -39,12 +43,10 @@ class InvoiceService
             $data->productLines
         );
 
-        // Associate lines with the invoice in memory
-        // We use setRelation so Eloquent knows about them
+        // Associate lines in memory so the returned object is complete
         $invoice->setRelation('productLines', collect($lines));
-
-        // Persist the entire aggregate (Invoice + Lines) via the Repository
-        // The repository implementation (using push()) will handle saving both
+        
+        // Delegate persistence of the relationship to the repository
         $this->invoiceRepository->save($invoice);
 
         return $invoice;
@@ -65,12 +67,13 @@ class InvoiceService
         }
 
         // 1. Enforce Domain Rules & State Transition
+        // The Model validates invariants (Draft status, positive lines, etc.)
         $invoice->markAsSending();
         
-        // 2. Persist Change
+        // 2. Persist State Change
         $this->invoiceRepository->save($invoice);
 
-        // 3. Handle Side Effects
+        // 3. Handle Side Effects (Notification)
         $this->notificationFacade->notify(new NotifyData(
             resourceId: Uuid::fromString($invoice->id),
             toEmail: $invoice->customer_email,

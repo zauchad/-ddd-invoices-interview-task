@@ -53,3 +53,30 @@ The invoice should contain the following fields:
 
 * Start the project by running `./start.sh`.
 * To access the container environment, use: `docker compose exec app bash`.
+
+---
+
+## Implementation Reasoning & Architectural Decisions
+
+The implementation follows a **Modular Monolith** architecture with strict adherence to **Domain-Driven Design (DDD)** principles. The goal was to create a system that is robust, testable, and explicitly defines its boundaries.
+
+### 1. Domain-Driven Design (DDD)
+The core logic is encapsulated within the Domain Layer, isolated from Infrastructure and Presentation concerns.
+*   **Rich Domain Model**: The `Invoice` model is not just a data container. It encapsulates business invariants and state transitions (e.g., `markAsSending`, `markAsSentToClient`). This ensures that an Invoice can never be in an invalid state, regardless of where the code is called from.
+*   **Repositories**: Access to the database is abstracted via interfaces (`InvoiceRepositoryInterface`), adhering to the Dependency Inversion Principle.
+
+### 2. Data Transfer Objects (DTOs)
+To prevent "Primitive Obsession" and leaky abstractions, strict DTOs (`CreateInvoiceDto`, `InvoiceProductLineDto`) were introduced.
+*   **Guard Rails**: The Service Layer acts as a trusted boundary. By requiring typed DTOs instead of loose arrays, we ensure that the service only receives valid, structured data.
+*   **Composition**: `CreateInvoiceDto` composes an array of `InvoiceProductLineDto`, strictly enforcing the structure of complex nested data.
+
+### 3. Service Layer Responsibility
+The `InvoiceService` acts purely as an orchestrator. It does not contain business rules (which belong in the Model) or HTTP logic (which belongs in the Controller).
+*   **Workflow**: Retrieve Aggregate -> Call Domain Behavior -> Persist -> Handle Side Effects.
+
+### 4. Presentation Layer
+*   **Thin Controllers**: The controller delegates all logic to the Service and maps Requests to DTOs.
+*   **API Resources**: Response formatting is decoupled from the internal model structure using Laravel Resources.
+
+### 5. Conciseness & Modern PHP
+The codebase utilizes PHP 8.2+ features like Constructor Property Promotion, Readonly Properties, and Arrow Functions to reduce boilerplate while maintaining readability.
