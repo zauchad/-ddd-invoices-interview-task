@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Modules\Invoices\Application\Listeners;
 
-use Modules\Invoices\Domain\Enums\StatusEnum;
 use Modules\Invoices\Domain\Repositories\InvoiceRepositoryInterface;
 use Modules\Notifications\Api\Events\ResourceDeliveredEvent;
 
@@ -19,11 +18,10 @@ class InvoiceDeliveredListener
         $invoiceId = $event->resourceId->toString();
         $invoice = $this->invoiceRepository->find($invoiceId);
 
-        // Requirement: Only mark as sent-to-client if currently sending
-        if ($invoice && $invoice->status === StatusEnum::Sending) {
-            $invoice->status = StatusEnum::SentToClient;
+        if ($invoice) {
+            // Delegate state transition logic to the Domain Model
+            $invoice->markAsSentToClient();
             $this->invoiceRepository->save($invoice);
         }
     }
 }
-

@@ -20,6 +20,7 @@ class InvoiceServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->loadRoutesFrom(__DIR__ . '/../../Presentation/routes.php');
         Event::listen(ResourceDeliveredEvent::class, InvoiceDeliveredListener::class);
     }
 }
