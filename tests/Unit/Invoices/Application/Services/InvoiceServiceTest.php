@@ -43,9 +43,11 @@ class InvoiceServiceTest extends TestCase
             productLines: []
         );
 
-        // Expect save to be called once with an Invoice that is Draft
+        // Expect save to be called twice:
+        // 1. To persist the root invoice
+        // 2. To persist the relationship changes
         $this->invoiceRepository->shouldReceive('save')
-            ->once()
+            ->times(2)
             ->withArgs(function ($arg) {
                 return $arg instanceof Invoice && $arg->status === StatusEnum::Draft;
             });

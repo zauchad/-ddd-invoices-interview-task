@@ -80,3 +80,10 @@ The `InvoiceService` acts purely as an orchestrator. It does not contain busines
 
 ### 5. Conciseness & Modern PHP
 The codebase utilizes PHP 8.2+ features like Constructor Property Promotion, Readonly Properties, and Arrow Functions to reduce boilerplate while maintaining readability.
+
+### Future Improvements
+In a real-world production environment, the following tools and practices would be recommended to further harden the application:
+*   **Static Analysis**: Tools like **PHPStan** to enforce type safety at a deeper level.
+*   **Architectural Enforcement**: Tools like **Deptrac** to strictly enforce module boundaries (ensuring Domain doesn't depend on Infrastructure, etc.).
+*   **Code Style**:  **PHP-CS-Fixer** for consistent formatting.
+*   **Event Sourcing**: For a complex invoice system, capturing state changes as events rather than just updating fields would provide a complete audit log.
