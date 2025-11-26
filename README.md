@@ -1,89 +1,72 @@
-## Invoice Structure:
+# Invoice Module Implementation
 
-The invoice should contain the following fields:
-* **Invoice ID**: Auto-generated during creation.
-* **Invoice Status**: Possible states include `draft,` `sending,` and `sent-to-client`.
-* **Customer Name** 
-* **Customer Email** 
-* **Invoice Product Lines**, each with:
-  * **Product Name**
-  * **Quantity**: Integer, must be positive. 
-  * **Unit Price**: Integer, must be positive.
-  * **Total Unit Price**: Calculated as Quantity x Unit Price. 
-* **Total Price**: Sum of all Total Unit Prices.
+## 1. Architectural Overview
 
-## Required Endpoints:
+This project implements a **Modular Monolith** architecture, treating the `Invoices` module as a bounded context with strict separation of concerns. The design follows **Domain-Driven Design (DDD)** principles to ensure the business logic remains pure, testable, and decoupled from the framework infrastructure.
 
-1. **View Invoice**: Retrieve invoice data in the format above.
-2. **Create Invoice**: Initialize a new invoice.
-3. **Send Invoice**: Handle the sending of an invoice.
+### Layered Structure
 
-## Functional Requirements:
+*   **Domain Layer** (`src/Modules/Invoices/Domain`):
+    *   **Role**: The "Core". Contains Entities (`Invoice`, `ProductLine`), Enums, and Repository Contracts.
+    *   **Reasoning**: This layer contains the *business truth*. It has zero dependencies on the HTTP layer or external services. Validation logic (e.g., "An invoice must be draft to be sent") lives here, ensuring that an invoice can never be in an invalid state regardless of where it is called from.
+    
+*   **Application Layer** (`src/Modules/Invoices/Application`):
+    *   **Role**: The "Orchestrator". Contains Services (`InvoiceService`) and Event Listeners.
+    *   **Reasoning**: Services orchestrate the flow of data between the Domain and Infrastructure. They do not contain business rules; they simply tell the Domain objects to perform actions and then persist the result. This keeps the service thin and easily testable.
 
-### Invoice Criteria:
+*   **Infrastructure Layer** (`src/Modules/Invoices/Infrastructure`):
+    *   **Role**: The "Plumbing". Contains Repository Implementations (`EloquentInvoiceRepository`) and Service Providers.
+    *   **Reasoning**: By hiding Eloquent implementation details behind an interface (`InvoiceRepositoryInterface`), we adhere to the **Dependency Inversion Principle**. This allows us to mock persistence easily in Unit Tests and potentially swap storage mechanisms without touching business logic.
 
-* An invoice can only be created in `draft` status. 
-* An invoice can be created with empty product lines. 
-* An invoice can only be sent if it is in `draft` status. 
-* An invoice can only be marked as `sent-to-client` if its current status is `sending`. 
-* To be sent, an invoice must contain product lines with both quantity and unit price as positive integers greater than **zero**.
-
-### Invoice Sending Workflow:
-
-* **Send an email notification** to the customer using the `NotificationFacade`. 
-  * The email's subject and message may be hardcoded or customized as needed. 
-  * Change the **Invoice Status** to `sending` after sending the notification.
-
-### Delivery:
-
-* Upon successful delivery by the Dummy notification provider:
-  * The **Notification Module** triggers a `ResourceDeliveredEvent` via webhook.
-  * The **Invoice Module** listens for and captures this event.
-  * The **Invoice Status** is updated from `sending` to `sent-to-client`.
-  * **Note**: This transition requires that the invoice is currently in the `sending` status.
-
-## Technical Requirements:
-
-* **Preferred Approach**: Domain-Driven Design (DDD) is preferred for this project. If you have experience with DDD, please feel free to apply this methodology. However, if you are more comfortable with another approach, you may choose an alternative structure.
-* **Alternative Submission**: If you have a different, comparable project or task that showcases your skills, you may submit that instead of creating this task.
-* **Unit Tests**: Core invoice logic should be unit tested. Testing the returned values from endpoints is not required.
-* **Documentation**: Candidates are encouraged to document their decisions and reasoning in comments or a README file, explaining why specific implementations or structures were chosen.
-
-## Setup Instructions:
-
-* Start the project by running `./start.sh`.
-* To access the container environment, use: `docker compose exec app bash`.
+*   **Presentation Layer** (`src/Modules/Invoices/Presentation`):
+    *   **Role**: The "Interface". Contains Controllers and API Resources.
+    *   **Reasoning**: Controllers are strictly "adapters" that convert HTTP requests into DTOs and delegate to the Application layer. They contain no business logic.
 
 ---
 
-## Implementation Reasoning & Architectural Decisions
+## 2. Key Design Decisions
 
-The implementation follows a **Modular Monolith** architecture with strict adherence to **Domain-Driven Design (DDD)** principles. The goal was to create a system that is robust, testable, and explicitly defines its boundaries.
+### A. Rich Domain Model vs. Anemic Model
+Instead of treating the `Invoice` model as a simple data container, I implemented a **Rich Domain Model**.
+*   **Decision**: Methods like `markAsSending()` and `markAsSentToClient()` encapsulate state transitions and invariant checks.
+*   **Benefit**: This prevents "leaky abstractions" where business rules are scattered across Services or Controllers. If you hold an `Invoice` object, you can be sure it obeys the rules of the domain.
 
-### 1. Domain-Driven Design (DDD)
-The core logic is encapsulated within the Domain Layer, isolated from Infrastructure and Presentation concerns.
-*   **Rich Domain Model**: The `Invoice` model is not just a data container. It encapsulates business invariants and state transitions (e.g., `markAsSending`, `markAsSentToClient`). This ensures that an Invoice can never be in an invalid state, regardless of where the code is called from.
-*   **Repositories**: Access to the database is abstracted via interfaces (`InvoiceRepositoryInterface`), adhering to the Dependency Inversion Principle.
+### B. Data Transfer Objects (DTOs)
+I introduced `CreateInvoiceDto` and `InvoiceProductLineDto` to handle data ingest.
+*   **Decision**: Replaced loose associative arrays (e.g., `$request->all()`) with typed objects.
+*   **Benefit**: This acts as a strict contract for the Service Layer. It eliminates "Primitive Obsession" and ensures the Service never has to guess the shape of its input data. It creates self-documenting code that is safer to refactor.
 
-### 2. Data Transfer Objects (DTOs)
-To prevent "Primitive Obsession" and leaky abstractions, strict DTOs (`CreateInvoiceDto`, `InvoiceProductLineDto`) were introduced.
-*   **Guard Rails**: The Service Layer acts as a trusted boundary. By requiring typed DTOs instead of loose arrays, we ensure that the service only receives valid, structured data.
-*   **Composition**: `CreateInvoiceDto` composes an array of `InvoiceProductLineDto`, strictly enforcing the structure of complex nested data.
+### C. Repository Pattern with Aggregate Persistence
+The `Invoice` is treated as an **Aggregate Root**.
+*   **Decision**: The `save(Invoice $invoice)` method in the repository handles persisting strictly the Invoice *and* its product lines transactionally.
+*   **Benefit**: The Service doesn't need to know *how* to save related lines (Active Record pattern details). It simply hands the Aggregate to the Repository. This also solves complex testing issues where unit tests fail due to missing database connections.
 
-### 3. Service Layer Responsibility
-The `InvoiceService` acts purely as an orchestrator. It does not contain business rules (which belong in the Model) or HTTP logic (which belongs in the Controller).
-*   **Workflow**: Retrieve Aggregate -> Call Domain Behavior -> Persist -> Handle Side Effects.
+### D. Testing Strategy
+A multi-level testing strategy was employed to eliminate the need for manual QA:
+*   **Unit Tests**: Focus on the Domain Logic (invariants) and Service orchestration (mocking external dependencies). They run fast and cover edge cases.
+*   **Feature/E2E Tests**: Cover the full HTTP lifecycle, database persistence, and event handling. These ensure the system works as a cohesive whole.
 
-### 4. Presentation Layer
-*   **Thin Controllers**: The controller delegates all logic to the Service and maps Requests to DTOs.
-*   **API Resources**: Response formatting is decoupled from the internal model structure using Laravel Resources.
+---
 
-### 5. Conciseness & Modern PHP
-The codebase utilizes PHP 8.2+ features like Constructor Property Promotion, Readonly Properties, and Arrow Functions to reduce boilerplate while maintaining readability.
+## 3. Future Improvements (Production Readiness)
 
-### Future Improvements
-In a real-world production environment, the following tools and practices would be recommended to further harden the application:
-*   **Static Analysis**: Tools like **PHPStan** to enforce type safety at a deeper level.
-*   **Architectural Enforcement**: Tools like **Deptrac** to strictly enforce module boundaries (ensuring Domain doesn't depend on Infrastructure, etc.).
-*   **Code Style**:  **PHP-CS-Fixer** for consistent formatting.
-*   **Event Sourcing**: For a complex invoice system, capturing state changes as events rather than just updating fields would provide a complete audit log.
+In a production environment, I would further enhance the robustness with:
+*   **Static Analysis**: Integration of **PHPStan** (Level 8+) to enforce type safety at compile time.
+*   **Architectural Linting**: Using **Deptrac** to strictly enforce that the Domain layer never depends on Infrastructure or Presentation layers.
+*   **Code Style**: **PHP-CS-Fixer** to maintain consistent formatting across the team.
+*   **Event Sourcing**: For a financial system like Invoicing, moving to an Event Sourced model would provide a perfect audit log of *what* happened and *why* (e.g., `InvoiceDrafted`, `InvoiceSent`, `InvoiceDelivered`).
+
+---
+
+## 4. Setup & Verification
+
+### Run the Application
+```bash
+./start.sh
+```
+
+### Run the Test Suite
+The project comes with a complete suite of automated tests proving functionality.
+```bash
+docker compose exec app php artisan test
+```
