@@ -16,7 +16,12 @@ class EloquentInvoiceRepository implements InvoiceRepositoryInterface
 
     public function save(Invoice $invoice): void
     {
-        $invoice->push();
+        // Save the root invoice to ensure it has an ID
+        $invoice->save();
+
+        // If product lines are loaded (e.g. new lines attached via setRelation), save them
+        if ($invoice->relationLoaded('productLines')) {
+            $invoice->productLines()->saveMany($invoice->productLines);
+        }
     }
 }
-
