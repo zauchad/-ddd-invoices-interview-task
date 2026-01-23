@@ -1,11 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-abstract class TestCase extends BaseTestCase
+abstract class TestCase extends KernelTestCase
 {
-    use RefreshDatabase;
 }

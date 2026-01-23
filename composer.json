@@ -1,29 +1,35 @@
 {
-    "name": "laravel/laravel",
+    "name": "interview/invoice-module",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "Invoice Module - Modular Monolith with Symfony and Doctrine",
     "license": "MIT",
     "require": {
         "php": "^8.4",
-        "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10"
+        "symfony/framework-bundle": "^7.2",
+        "symfony/runtime": "^7.2",
+        "symfony/yaml": "^7.2",
+        "symfony/dotenv": "^7.2",
+        "doctrine/orm": "^3.3",
+        "doctrine/doctrine-bundle": "^2.13",
+        "doctrine/doctrine-migrations-bundle": "^3.4",
+        "ramsey/uuid": "^4.7",
+        "ramsey/uuid-doctrine": "^2.1",
+        "symfony/validator": "^7.2",
+        "symfony/serializer": "^7.2",
+        "symfony/property-access": "^7.2"
     },
     "require-dev": {
-        "fakerphp/faker": "^1.24",
-        "laravel/pail": "^1.2",
-        "laravel/pint": "^1.24",
-        "laravel/sail": "^1.44",
-        "mockery/mockery": "^1.6",
-        "nunomaduro/collision": "^8.8",
-        "phpunit/phpunit": "^11"
+        "phpunit/phpunit": "^11",
+        "symfony/test-pack": "^1.1",
+        "symfony/browser-kit": "^7.2",
+        "symfony/css-selector": "^7.2",
+        "doctrine/doctrine-fixtures-bundle": "^4.0",
+        "dama/doctrine-test-bundle": "^8.2"
     },
     "autoload": {
         "psr-4": {
-            "App\\": "app/",
-            "Modules\\": "src/Modules/",
-            "Database\\Factories\\": "database/factories/",
-            "Database\\Seeders\\": "database/seeders/"
+            "App\\": "src/App/",
+            "Modules\\": "src/Modules/"
         }
     },
     "autoload-dev": {
@@ -32,38 +38,24 @@
         }
     },
     "scripts": {
-        "post-autoload-dump": [
-            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover --ansi"
+        "auto-scripts": {
+            "cache:clear": "symfony-cmd",
+            "assets:install %PUBLIC_DIR%": "symfony-cmd"
+        },
+        "post-install-cmd": [
+            "@auto-scripts"
         ],
         "post-update-cmd": [
-            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
-        ],
-        "post-root-package-install": [
-            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
-        ],
-        "post-create-project-cmd": [
-            "@php artisan key:generate --ansi",
-            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
-            "@php artisan migrate --graceful --ansi"
-        ],
-        "dev": [
-            "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail\" \"npm run dev\" --names=server,queue,logs,vite"
+            "@auto-scripts"
         ]
-    },
-    "extra": {
-        "laravel": {
-            "dont-discover": []
-        }
     },
     "config": {
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
-            "pestphp/pest-plugin": true,
-            "php-http/discovery": true
+            "symfony/runtime": true,
+            "symfony/flex": true
         }
     },
     "minimum-stability": "stable",

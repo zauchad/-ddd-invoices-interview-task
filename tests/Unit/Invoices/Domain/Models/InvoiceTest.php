@@ -4,58 +4,114 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Invoices\Domain\Models;
 
-use Exception;
 use Modules\Invoices\Domain\Enums\StatusEnum;
+use Modules\Invoices\Domain\Exceptions\InvalidInvoiceStateException;
+use Modules\Invoices\Domain\Exceptions\InvoiceValidationException;
 use Modules\Invoices\Domain\Models\Invoice;
-use Modules\Invoices\Domain\Models\InvoiceProductLine;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Unit tests for the Invoice domain entity.
+ * 
+ * These tests verify business rules without ANY infrastructure dependencies.
+ * This is possible because our domain entities are pure PHP objects.
+ */
 class InvoiceTest extends TestCase
 {
+    public function test_create_invoice_starts_in_draft_status(): void
+    {
+        $invoice = Invoice::create('John Doe', 'john@example.com');
+
+        $this->assertEquals(StatusEnum::Draft, $invoice->getStatus());
+        $this->assertEquals('John Doe', $invoice->getCustomerName());
+        $this->assertEquals('john@example.com', $invoice->getCustomerEmail());
+        $this->assertEmpty($invoice->getProductLines());
+    }
+
+    public function test_add_product_line(): void
+    {
+        $invoice = Invoice::create('John Doe', 'john@example.com');
+        
+        $invoice->addProductLine('Product A', 2, 100);
+        
+        $this->assertCount(1, $invoice->getProductLines());
+        $this->assertEquals('Product A', $invoice->getProductLines()[0]->getName());
+        $this->assertEquals(2, $invoice->getProductLines()[0]->getQuantity());
+        $this->assertEquals(100, $invoice->getProductLines()[0]->getPrice());
+    }
+
+    public function test_total_price_calculation(): void
+    {
+        $invoice = Invoice::create('John Doe', 'john@example.com');
+        
+        $invoice->addProductLine('Product A', 2, 100); // 200
+        $invoice->addProductLine('Product B', 3, 50);  // 150
+        
+        $this->assertEquals(350, $invoice->getTotalPrice());
+    }
+
     public function test_mark_as_sending_transitions_status(): void
     {
-        $invoice = new Invoice(['status' => StatusEnum::Draft]);
-        $invoice->setRelation('productLines', collect([
-            new InvoiceProductLine(['quantity' => 1, 'price' => 100])
-        ]));
+        $invoice = Invoice::create('John Doe', 'john@example.com');
+        $invoice->addProductLine('Product A', 1, 100);
 
         $invoice->markAsSending();
 
-        $this->assertEquals(StatusEnum::Sending, $invoice->status);
+        $this->assertEquals(StatusEnum::Sending, $invoice->getStatus());
     }
 
     public function test_mark_as_sending_throws_if_not_draft(): void
     {
-        $invoice = new Invoice(['status' => StatusEnum::SentToClient]);
+        $invoice = Invoice::create('John Doe', 'john@example.com');
+        $invoice->addProductLine('Product A', 1, 100);
+        $invoice->markAsSending();
         
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessage("Invoice must be in draft status to be sent");
+        $this->expectException(InvalidInvoiceStateException::class);
+        $this->expectExceptionMessage('Invoice must be in draft status to be sent');
 
         $invoice->markAsSending();
     }
 
     public function test_mark_as_sending_throws_if_no_lines(): void
     {
-        $invoice = new Invoice(['status' => StatusEnum::Draft]);
-        $invoice->setRelation('productLines', collect([]));
+        $invoice = Invoice::create('John Doe', 'john@example.com');
 
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessage("Invoice must have product lines to be sent");
+        $this->expectException(InvoiceValidationException::class);
+        $this->expectExceptionMessage('Invoice must have product lines to be sent');
 
         $invoice->markAsSending();
     }
 
     public function test_mark_as_sending_throws_if_invalid_lines(): void
     {
-        $invoice = new Invoice(['status' => StatusEnum::Draft]);
-        $invoice->setRelation('productLines', collect([
-            new InvoiceProductLine(['quantity' => 0, 'price' => 100])
-        ]));
+        $invoice = Invoice::create('John Doe', 'john@example.com');
+        $invoice->addProductLine('Product A', 0, 100); // Invalid: quantity is 0
 
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessage("All product lines must have positive quantity and price");
+        $this->expectException(InvoiceValidationException::class);
+        $this->expectExceptionMessage('All product lines must have positive quantity and price');
 
         $invoice->markAsSending();
     }
-}
 
+    public function test_mark_as_sent_to_client_transitions_from_sending(): void
+    {
+        $invoice = Invoice::create('John Doe', 'john@example.com');
+        $invoice->addProductLine('Product A', 1, 100);
+        $invoice->markAsSending();
+
+        $invoice->markAsSentToClient();
+
+        $this->assertEquals(StatusEnum::SentToClient, $invoice->getStatus());
+    }
+
+    public function test_mark_as_sent_to_client_is_idempotent_for_non_sending(): void
+    {
+        $invoice = Invoice::create('John Doe', 'john@example.com');
+        $originalStatus = $invoice->getStatus();
+
+        // Should not throw, but should not change status either
+        $invoice->markAsSentToClient();
+
+        $this->assertEquals($originalStatus, $invoice->getStatus());
+    }
+}

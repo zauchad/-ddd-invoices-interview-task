@@ -1,0 +1,8 @@
+# Import module routes
+invoices:
+    resource: '../src/Modules/Invoices/Presentation/routes.yaml'
+    prefix: /api
+
+notifications:
+    resource: '../src/Modules/Notifications/Presentation/routes.yaml'
+    prefix: /api

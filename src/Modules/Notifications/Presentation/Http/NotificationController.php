@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace Modules\Notifications\Presentation\Http;
 
-use Illuminate\Http\JsonResponse;
 use Modules\Notifications\Application\Services\NotificationService;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
-final readonly class NotificationController
+class NotificationController extends AbstractController
 {
     public function __construct(
-        private NotificationService $notificationService,
+        private readonly NotificationService $notificationService
     ) {}
 
     public function hook(string $action, string $reference): JsonResponse

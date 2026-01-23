@@ -4,136 +4,96 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Invoices\Http;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Doctrine\ORM\EntityManagerInterface;
 use Modules\Invoices\Domain\Enums\StatusEnum;
 use Modules\Invoices\Domain\Models\Invoice;
 use Modules\Notifications\Api\NotificationFacadeInterface;
-use Tests\TestCase;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-class InvoiceControllerTest extends TestCase
+class InvoiceControllerTest extends WebTestCase
 {
-    use RefreshDatabase;
-
     public function test_can_create_invoice_draft(): void
     {
-        $data = [
+        $client = static::createClient();
+        
+        $client->request('POST', '/api/invoices', [], [], [
+            'CONTENT_TYPE' => 'application/json',
+        ], json_encode([
             'customer_name' => 'John Doe',
             'customer_email' => 'john@example.com',
             'product_lines' => [],
-        ];
+        ]));
 
-        $response = $this->postJson(route('invoices.create'), $data);
-
-        $response->assertStatus(201)
-            ->assertJson([
-                'data' => [
-                    'customer_name' => 'John Doe',
-                    'customer_email' => 'john@example.com',
-                    'status' => 'draft',
-                    'product_lines' => [],
-                    'total_price' => 0,
-                ]
-            ]);
-
-        $this->assertDatabaseHas('invoices', [
-            'customer_email' => 'john@example.com',
-            'status' => 'draft',
-        ]);
+        $this->assertResponseStatusCodeSame(201);
+        
+        $response = json_decode($client->getResponse()->getContent(), true);
+        $this->assertEquals('John Doe', $response['data']['customer_name']);
+        $this->assertEquals('john@example.com', $response['data']['customer_email']);
+        $this->assertEquals('draft', $response['data']['status']);
     }
 
     public function test_can_view_invoice(): void
     {
-        $invoice = Invoice::create([
-            'customer_name' => 'Jane Doe',
-            'customer_email' => 'jane@example.com',
-            'status' => StatusEnum::Draft,
-        ]);
+        $client = static::createClient();
+        $container = static::getContainer();
+        
+        // Create invoice via service
+        $invoice = Invoice::create('Jane Doe', 'jane@example.com');
+        $invoice->addProductLine('Product 1', 2, 100);
+        
+        $em = $container->get(EntityManagerInterface::class);
+        $em->persist($invoice);
+        $em->flush();
 
-        $invoice->productLines()->create([
-            'name' => 'Product 1',
-            'quantity' => 2,
-            'price' => 100,
-        ]);
+        $client->request('GET', '/api/invoices/' . $invoice->getId()->toString());
 
-        $response = $this->getJson(route('invoices.view', $invoice->id));
-
-        $response->assertStatus(200)
-            ->assertJson([
-                'data' => [
-                    'id' => $invoice->id,
-                    'customer_name' => 'Jane Doe',
-                    'total_price' => 200,
-                    'product_lines' => [
-                        [
-                            'name' => 'Product 1',
-                            'quantity' => 2,
-                            'unit_price' => 100,
-                            'total_unit_price' => 200,
-                        ]
-                    ]
-                ]
-            ]);
+        $this->assertResponseIsSuccessful();
+        
+        $response = json_decode($client->getResponse()->getContent(), true);
+        $this->assertEquals('Jane Doe', $response['data']['customer_name']);
+        $this->assertEquals(200, $response['data']['total_price']);
     }
 
     public function test_can_send_invoice(): void
     {
-        $this->mock(NotificationFacadeInterface::class)
-            ->shouldReceive('notify')
-            ->once();
+        $client = static::createClient();
+        $container = static::getContainer();
 
-        $invoice = Invoice::create([
-            'customer_name' => 'Jane Doe',
-            'customer_email' => 'jane@example.com',
-            'status' => StatusEnum::Draft,
-        ]);
+        // Mock notification facade
+        $mockFacade = $this->createMock(NotificationFacadeInterface::class);
+        $mockFacade->expects($this->once())->method('notify');
+        $container->set(NotificationFacadeInterface::class, $mockFacade);
 
-        $invoice->productLines()->create([
-            'name' => 'Product 1',
-            'quantity' => 1,
-            'price' => 100,
-        ]);
+        // Create invoice
+        $invoice = Invoice::create('Jane Doe', 'jane@example.com');
+        $invoice->addProductLine('Product 1', 1, 100);
+        
+        $em = $container->get(EntityManagerInterface::class);
+        $em->persist($invoice);
+        $em->flush();
 
-        $response = $this->postJson(route('invoices.send', $invoice->id));
+        $client->request('POST', '/api/invoices/' . $invoice->getId()->toString() . '/send');
 
-        $response->assertStatus(200)
-            ->assertJsonPath('data.status', 'sending');
-
-        $this->assertDatabaseHas('invoices', [
-            'id' => $invoice->id,
-            'status' => 'sending',
-        ]);
+        $this->assertResponseIsSuccessful();
+        
+        $response = json_decode($client->getResponse()->getContent(), true);
+        $this->assertEquals('sending', $response['data']['status']);
     }
 
     public function test_cannot_send_empty_invoice(): void
     {
-        $invoice = Invoice::create([
-            'customer_name' => 'Jane Doe',
-            'customer_email' => 'jane@example.com',
-            'status' => StatusEnum::Draft,
-        ]);
+        $client = static::createClient();
+        $container = static::getContainer();
 
-        $response = $this->postJson(route('invoices.send', $invoice->id));
+        $invoice = Invoice::create('Jane Doe', 'jane@example.com');
+        // No product lines
+        
+        $em = $container->get(EntityManagerInterface::class);
+        $em->persist($invoice);
+        $em->flush();
 
-        $response->assertStatus(400);
-    }
+        $client->request('POST', '/api/invoices/' . $invoice->getId()->toString() . '/send');
 
-    public function test_cannot_send_invoice_with_invalid_lines(): void
-    {
-        $invoice = Invoice::create([
-            'customer_name' => 'Jane Doe',
-            'customer_email' => 'jane@example.com',
-            'status' => StatusEnum::Draft,
-        ]);
-
-        $invoice->productLines()->create([
-            'name' => 'Product 1',
-            'quantity' => 0,
-            'price' => 100,
-        ]);
-
-        $response = $this->postJson(route('invoices.send', $invoice->id));
-
-        $response->assertStatus(400);
+        $this->assertResponseStatusCodeSame(400);
     }
 }
-

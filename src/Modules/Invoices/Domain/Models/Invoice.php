@@ -4,68 +4,119 @@ declare(strict_types=1);
 
 namespace Modules\Invoices\Domain\Models;
 
-use Exception;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Invoices\Domain\Enums\StatusEnum;
+use Modules\Invoices\Domain\Exceptions\InvalidInvoiceStateException;
+use Modules\Invoices\Domain\Exceptions\InvoiceValidationException;
+use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidInterface;
 
 /**
- * @property string $id
- * @property string $customer_name
- * @property string $customer_email
- * @property StatusEnum $status
- * @property \Illuminate\Support\Collection|InvoiceProductLine[] $productLines
+ * Invoice Aggregate Root - Pure Domain Entity.
+ * 
+ * This entity has NO infrastructure dependencies (no Eloquent, no Doctrine base classes).
+ * Persistence is handled externally by the Repository using Doctrine's reflection-based mapping.
+ * 
+ * Key DDD principle: The Domain layer has ZERO knowledge of how it's persisted.
  */
-class Invoice extends Model
+class Invoice
 {
-    use HasUuids;
+    private UuidInterface $id;
+    private string $customerName;
+    private string $customerEmail;
+    private StatusEnum $status;
+    
+    /** @var array<InvoiceProductLine> */
+    private array $productLines = [];
 
-    protected $table = 'invoices';
+    private function __construct(
+        UuidInterface $id,
+        string $customerName,
+        string $customerEmail,
+        StatusEnum $status
+    ) {
+        $this->id = $id;
+        $this->customerName = $customerName;
+        $this->customerEmail = $customerEmail;
+        $this->status = $status;
+    }
 
-    protected $fillable = [
-        'customer_name',
-        'customer_email',
-        'status',
-    ];
-
-    protected $casts = [
-        'status' => StatusEnum::class,
-    ];
-
-    public function productLines(): HasMany
+    /**
+     * Factory method: Creates a new draft invoice.
+     */
+    public static function create(string $customerName, string $customerEmail): self
     {
-        return $this->hasMany(InvoiceProductLine::class);
+        return new self(
+            id: Uuid::uuid4(),
+            customerName: $customerName,
+            customerEmail: $customerEmail,
+            status: StatusEnum::Draft
+        );
+    }
+
+    public function getId(): UuidInterface
+    {
+        return $this->id;
+    }
+
+    public function getCustomerName(): string
+    {
+        return $this->customerName;
+    }
+
+    public function getCustomerEmail(): string
+    {
+        return $this->customerEmail;
+    }
+
+    public function getStatus(): StatusEnum
+    {
+        return $this->status;
+    }
+
+    /**
+     * @return array<InvoiceProductLine>
+     */
+    public function getProductLines(): array
+    {
+        return $this->productLines;
+    }
+
+    public function addProductLine(string $name, int $quantity, int $price): void
+    {
+        $this->productLines[] = InvoiceProductLine::create($this, $name, $quantity, $price);
     }
 
     public function getTotalPrice(): int
     {
-        return $this->productLines->sum(fn (InvoiceProductLine $line) => $line->getTotalUnitPrice());
+        return array_reduce(
+            $this->productLines,
+            fn (int $total, InvoiceProductLine $line) => $total + $line->getTotalPrice(),
+            0
+        );
     }
 
     /**
      * Domain Behavior: Transition to 'Sending' state.
-     * Encapsulates all invariants required for this transition to ensure data integrity.
+     * Encapsulates all invariants required for this transition.
      * 
-     * @throws Exception If invariants (Draft status, non-empty valid lines) are violated.
+     * @throws InvalidInvoiceStateException If invoice is not in Draft status.
+     * @throws InvoiceValidationException If product lines are empty or invalid.
      */
     public function markAsSending(): void
     {
         if ($this->status !== StatusEnum::Draft) {
-            throw new Exception("Invoice must be in draft status to be sent");
+            throw InvalidInvoiceStateException::mustBeDraft($this->status);
         }
 
-        if ($this->productLines->isEmpty()) {
-            throw new Exception("Invoice must have product lines to be sent");
+        if (empty($this->productLines)) {
+            throw InvoiceValidationException::emptyProductLines();
         }
 
         // Invariant: All lines must have positive quantity and price
-        $hasInvalidLines = $this->productLines->contains(
-            fn (InvoiceProductLine $line) => $line->quantity <= 0 || $line->price <= 0
-        );
-
-        if ($hasInvalidLines) {
-            throw new Exception("All product lines must have positive quantity and price");
+        foreach ($this->productLines as $line) {
+            if ($line->getQuantity() <= 0 || $line->getPrice() <= 0) {
+                throw InvoiceValidationException::invalidProductLines();
+            }
         }
 
         $this->status = StatusEnum::Sending;

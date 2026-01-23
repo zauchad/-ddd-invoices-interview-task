@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace Modules\Invoices\Application\Services;
 
-use Exception;
-use Ramsey\Uuid\Uuid;
 use Modules\Invoices\Api\Dtos\CreateInvoiceDto;
-use Modules\Invoices\Domain\Enums\StatusEnum;
+use Modules\Invoices\Domain\Exceptions\InvoiceNotFoundException;
 use Modules\Invoices\Domain\Models\Invoice;
-use Modules\Invoices\Domain\Models\InvoiceProductLine;
 use Modules\Invoices\Domain\Repositories\InvoiceRepositoryInterface;
 use Modules\Notifications\Api\Dtos\NotifyData;
 use Modules\Notifications\Api\NotificationFacadeInterface;
+use Ramsey\Uuid\Uuid;
 
+/**
+ * Application Service: Orchestrates use cases without containing business logic.
+ * 
+ * Coordinates between:
+ * - Domain layer (Invoice aggregate)
+ * - Infrastructure (Repository for persistence)
+ * - Other modules (NotificationFacade for cross-module communication)
+ */
 class InvoiceService
 {
     public function __construct(
@@ -23,27 +29,22 @@ class InvoiceService
 
     public function createInvoice(CreateInvoiceDto $data): Invoice
     {
-        $invoice = new Invoice([
-            'customer_name' => $data->customerName,
-            'customer_email' => $data->customerEmail,
-            'status' => StatusEnum::Draft,
-        ]);
-
-        // Create line objects in memory
-        $lines = array_map(
-            fn ($lineDto) => new InvoiceProductLine([
-                'name' => $lineDto->name,
-                'quantity' => $lineDto->quantity,
-                'price' => $lineDto->price,
-            ]),
-            $data->productLines
+        // Use domain factory method
+        $invoice = Invoice::create(
+            customerName: $data->customerName,
+            customerEmail: $data->customerEmail
         );
 
-        // Associate lines with the invoice
-        // This prepares the object graph so the Repository can persist it all
-        $invoice->setRelation('productLines', collect($lines));
+        // Add product lines through aggregate root
+        foreach ($data->productLines as $lineDto) {
+            $invoice->addProductLine(
+                name: $lineDto->name,
+                quantity: $lineDto->quantity,
+                price: $lineDto->price
+            );
+        }
 
-        // Delegate all persistence logic to the Repository
+        // Delegate persistence to repository
         $this->invoiceRepository->save($invoice);
 
         return $invoice;
@@ -54,13 +55,17 @@ class InvoiceService
         return $this->invoiceRepository->find($id);
     }
 
-    /** @throws Exception */
+    /**
+     * @throws InvoiceNotFoundException
+     * @throws \Modules\Invoices\Domain\Exceptions\InvalidInvoiceStateException
+     * @throws \Modules\Invoices\Domain\Exceptions\InvoiceValidationException
+     */
     public function sendInvoice(string $id): void
     {
         $invoice = $this->invoiceRepository->find($id);
 
         if (!$invoice) {
-            throw new Exception("Invoice not found");
+            throw InvoiceNotFoundException::withId($id);
         }
 
         // 1. Enforce Domain Rules & State Transition
@@ -69,11 +74,11 @@ class InvoiceService
         // 2. Persist Change
         $this->invoiceRepository->save($invoice);
 
-        // 3. Handle Side Effects
+        // 3. Handle Side Effects (notify other module)
         $this->notificationFacade->notify(new NotifyData(
-            resourceId: Uuid::fromString($invoice->id),
-            toEmail: $invoice->customer_email,
-            subject: "Invoice for " . $invoice->customer_name,
+            resourceId: $invoice->getId(),
+            toEmail: $invoice->getCustomerEmail(),
+            subject: "Invoice for " . $invoice->getCustomerName(),
             message: "Please find your invoice attached."
         ));
     }

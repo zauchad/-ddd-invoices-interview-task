@@ -6,14 +6,16 @@ namespace Modules\Invoices\Application\Listeners;
 
 use Modules\Invoices\Domain\Repositories\InvoiceRepositoryInterface;
 use Modules\Notifications\Api\Events\ResourceDeliveredEvent;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
+#[AsEventListener(event: ResourceDeliveredEvent::class)]
 class InvoiceDeliveredListener
 {
     public function __construct(
-        private InvoiceRepositoryInterface $invoiceRepository
+        private readonly InvoiceRepositoryInterface $invoiceRepository
     ) {}
 
-    public function handle(ResourceDeliveredEvent $event): void
+    public function __invoke(ResourceDeliveredEvent $event): void
     {
         $invoiceId = $event->resourceId->toString();
         $invoice = $this->invoiceRepository->find($invoiceId);

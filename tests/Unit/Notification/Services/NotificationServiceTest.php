@@ -4,34 +4,34 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Notification\Services;
 
-use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Foundation\Testing\WithFaker;
 use Modules\Notifications\Api\Events\ResourceDeliveredEvent;
 use Modules\Notifications\Application\Services\NotificationService;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Ramsey\Uuid\Uuid;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-final class NotificationServiceTest extends TestCase
+class NotificationServiceTest extends TestCase
 {
-    use WithFaker;
-
-    private Dispatcher $dispatcher;
-
-    private NotificationService $notificationService;
+    private EventDispatcherInterface&MockObject $dispatcher;
+    private NotificationService $service;
 
     protected function setUp(): void
     {
-        $this->setUpFaker();
-
-        $this->dispatcher = $this->createMock(Dispatcher::class);
-        $this->notificationService = new NotificationService($this->dispatcher);
+        $this->dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $this->service = new NotificationService($this->dispatcher);
     }
 
-    public function testDelivered(): void
+    public function test_delivered_dispatches_event(): void
     {
+        $uuid = Uuid::uuid4();
+
         $this->dispatcher->expects($this->once())
             ->method('dispatch')
-            ->with($this->isInstanceOf(ResourceDeliveredEvent::class));
+            ->with($this->callback(function (ResourceDeliveredEvent $event) use ($uuid) {
+                return $event->resourceId->toString() === $uuid->toString();
+            }));
 
-        $this->notificationService->delivered($this->faker->uuid());
+        $this->service->delivered($uuid->toString());
     }
 }

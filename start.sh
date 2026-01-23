@@ -1,9 +1,16 @@
-#! /bin/bash
+#!/bin/bash
 
-cp .env.example .env
-touch database/database.sqlite
-composer install --ignore-platform-reqs
-docker compose up --build --remove-orphans -d
-docker compose run app composer install
-docker compose run app cp -n .env.example .env
-docker compose run app php artisan migrate:fresh --seed
+# Start services
+docker compose up -d --build
+
+# Wait for database to be ready
+echo "Waiting for database..."
+sleep 5
+
+# Install dependencies
+docker compose exec app composer install
+
+# Run migrations
+docker compose exec app php bin/console doctrine:migrations:migrate --no-interaction
+
+echo "Application started at http://localhost:${APP_PORT:-8080}"

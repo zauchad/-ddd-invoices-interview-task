@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace Modules\Notifications\Application\Services;
 
-use Illuminate\Contracts\Events\Dispatcher;
 use Modules\Notifications\Api\Events\ResourceDeliveredEvent;
 use Ramsey\Uuid\Uuid;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-final readonly class NotificationService
+class NotificationService
 {
     public function __construct(
-        private Dispatcher $dispatcher,
+        private readonly EventDispatcherInterface $dispatcher
     ) {}
 
     public function delivered(string $reference): void
     {
         $this->dispatcher->dispatch(new ResourceDeliveredEvent(
-            resourceId: Uuid::fromString($reference),
+            resourceId: Uuid::fromString($reference)
         ));
     }
 }

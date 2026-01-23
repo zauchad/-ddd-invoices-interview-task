@@ -4,42 +4,43 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Notification\Facades;
 
-use Illuminate\Foundation\Testing\WithFaker;
-use Illuminate\Support\Str;
 use Modules\Notifications\Api\Dtos\NotifyData;
 use Modules\Notifications\Application\Facades\NotificationFacade;
 use Modules\Notifications\Infrastructure\Drivers\DriverInterface;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Ramsey\Uuid\Uuid;
 
-final class NotificationFacadeTest extends TestCase
+class NotificationFacadeTest extends TestCase
 {
-    use WithFaker;
-
-    private DriverInterface $driver;
-
-    private NotificationFacade $notificationFacade;
+    private DriverInterface&MockObject $driver;
+    private NotificationFacade $facade;
 
     protected function setUp(): void
     {
-        $this->setUpFaker();
-
         $this->driver = $this->createMock(DriverInterface::class);
-        $this->notificationFacade = new NotificationFacade(
-            driver: $this->driver,
-        );
+        $this->facade = new NotificationFacade($this->driver);
     }
 
-    public function testDelivered(): void
+    public function test_notify_delegates_to_driver(): void
     {
+        $resourceId = Uuid::uuid4();
         $data = new NotifyData(
-            resourceId: Str::uuid(),
-            toEmail: $this->faker->email(),
-            subject: $this->faker->sentence(),
-            message: $this->faker->sentence(),
+            resourceId: $resourceId,
+            toEmail: 'test@example.com',
+            subject: 'Test Subject',
+            message: 'Test Message'
         );
 
-        $this->driver->expects($this->once())->method('send');
+        $this->driver->expects($this->once())
+            ->method('send')
+            ->with(
+                'test@example.com',
+                'Test Subject',
+                'Test Message',
+                $resourceId->toString()
+            );
 
-        $this->notificationFacade->notify($data);
+        $this->facade->notify($data);
     }
 }
