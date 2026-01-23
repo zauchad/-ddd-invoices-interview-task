@@ -5,39 +5,21 @@ services:
         autowire: true
         autoconfigure: true
 
-    # App namespace
     App\:
         resource: '../src/App/'
-        exclude:
-            - '../src/App/Kernel.php'
+        exclude: '../src/App/Kernel.php'
 
-    # Invoices Module
-    Modules\Invoices\Presentation\Http\:
-        resource: '../src/Modules/Invoices/Presentation/Http/'
-        tags: ['controller.service_arguments']
+    Modules\Invoices\:
+        resource: '../src/Modules/Invoices/'
 
-    Modules\Invoices\Application\:
-        resource: '../src/Modules/Invoices/Application/'
+    Modules\Notifications\:
+        resource: '../src/Modules/Notifications/'
 
     Modules\Invoices\Domain\Repositories\InvoiceRepositoryInterface:
         alias: Modules\Invoices\Infrastructure\Repositories\DoctrineInvoiceRepository
 
-    Modules\Invoices\Infrastructure\:
-        resource: '../src/Modules/Invoices/Infrastructure/'
-
-    # Notifications Module
-    Modules\Notifications\Presentation\Http\:
-        resource: '../src/Modules/Notifications/Presentation/Http/'
-        tags: ['controller.service_arguments']
-
-    Modules\Notifications\Application\:
-        resource: '../src/Modules/Notifications/Application/'
-
     Modules\Notifications\Api\NotificationFacadeInterface:
         alias: Modules\Notifications\Application\Facades\NotificationFacade
-
-    Modules\Notifications\Infrastructure\:
-        resource: '../src/Modules/Notifications/Infrastructure/'
 
     Modules\Notifications\Infrastructure\Drivers\DriverInterface:
         alias: Modules\Notifications\Infrastructure\Drivers\DummyDriver

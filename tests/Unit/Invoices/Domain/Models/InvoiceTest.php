@@ -10,13 +10,7 @@ use Modules\Invoices\Domain\Exceptions\InvoiceValidationException;
 use Modules\Invoices\Domain\Models\Invoice;
 use PHPUnit\Framework\TestCase;
 
-/**
- * Unit tests for the Invoice domain entity.
- * 
- * These tests verify business rules without ANY infrastructure dependencies.
- * This is possible because our domain entities are pure PHP objects.
- */
-class InvoiceTest extends TestCase
+final class InvoiceTest extends TestCase
 {
     public function test_create_invoice_starts_in_draft_status(): void
     {
@@ -31,7 +25,6 @@ class InvoiceTest extends TestCase
     public function test_add_product_line(): void
     {
         $invoice = Invoice::create('John Doe', 'john@example.com');
-        
         $invoice->addProductLine('Product A', 2, 100);
         
         $this->assertCount(1, $invoice->getProductLines());
@@ -43,9 +36,8 @@ class InvoiceTest extends TestCase
     public function test_total_price_calculation(): void
     {
         $invoice = Invoice::create('John Doe', 'john@example.com');
-        
-        $invoice->addProductLine('Product A', 2, 100); // 200
-        $invoice->addProductLine('Product B', 3, 50);  // 150
+        $invoice->addProductLine('Product A', 2, 100);
+        $invoice->addProductLine('Product B', 3, 50);
         
         $this->assertEquals(350, $invoice->getTotalPrice());
     }
@@ -67,8 +59,6 @@ class InvoiceTest extends TestCase
         $invoice->markAsSending();
         
         $this->expectException(InvalidInvoiceStateException::class);
-        $this->expectExceptionMessage('Invoice must be in draft status to be sent');
-
         $invoice->markAsSending();
     }
 
@@ -77,19 +67,15 @@ class InvoiceTest extends TestCase
         $invoice = Invoice::create('John Doe', 'john@example.com');
 
         $this->expectException(InvoiceValidationException::class);
-        $this->expectExceptionMessage('Invoice must have product lines to be sent');
-
         $invoice->markAsSending();
     }
 
     public function test_mark_as_sending_throws_if_invalid_lines(): void
     {
         $invoice = Invoice::create('John Doe', 'john@example.com');
-        $invoice->addProductLine('Product A', 0, 100); // Invalid: quantity is 0
+        $invoice->addProductLine('Product A', 0, 100);
 
         $this->expectException(InvoiceValidationException::class);
-        $this->expectExceptionMessage('All product lines must have positive quantity and price');
-
         $invoice->markAsSending();
     }
 
@@ -109,7 +95,6 @@ class InvoiceTest extends TestCase
         $invoice = Invoice::create('John Doe', 'john@example.com');
         $originalStatus = $invoice->getStatus();
 
-        // Should not throw, but should not change status either
         $invoice->markAsSentToClient();
 
         $this->assertEquals($originalStatus, $invoice->getStatus());

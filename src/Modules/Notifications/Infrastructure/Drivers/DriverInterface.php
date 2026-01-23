@@ -6,10 +6,5 @@ namespace Modules\Notifications\Infrastructure\Drivers;
 
 interface DriverInterface
 {
-    public function send(
-        string $toEmail,
-        string $subject,
-        string $message,
-        string $reference,
-    ): bool;
+    public function send(string $toEmail, string $subject, string $message, string $reference): bool;
 }

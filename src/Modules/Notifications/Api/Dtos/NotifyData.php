@@ -12,6 +12,6 @@ final readonly class NotifyData
         public UuidInterface $resourceId,
         public string $toEmail,
         public string $subject,
-        public string $message,
+        public string $message
     ) {}
 }

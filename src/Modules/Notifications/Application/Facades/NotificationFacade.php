@@ -8,12 +8,6 @@ use Modules\Notifications\Api\Dtos\NotifyData;
 use Modules\Notifications\Api\NotificationFacadeInterface;
 use Modules\Notifications\Infrastructure\Drivers\DriverInterface;
 
-/**
- * Facade for the Notifications module.
- * 
- * This is the public API that other modules use to interact with Notifications.
- * It hides internal implementation details.
- */
 final readonly class NotificationFacade implements NotificationFacadeInterface
 {
     public function __construct(

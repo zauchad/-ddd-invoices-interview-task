@@ -12,4 +12,3 @@ final readonly class InvoiceProductLineDto
         public int $price
     ) {}
 }
-

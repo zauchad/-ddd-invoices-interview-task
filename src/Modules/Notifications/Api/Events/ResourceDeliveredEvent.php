@@ -9,6 +9,6 @@ use Ramsey\Uuid\UuidInterface;
 final readonly class ResourceDeliveredEvent
 {
     public function __construct(
-        public UuidInterface $resourceId,
+        public UuidInterface $resourceId
     ) {}
 }

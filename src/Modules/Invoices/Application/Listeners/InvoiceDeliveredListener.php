@@ -9,19 +9,17 @@ use Modules\Notifications\Api\Events\ResourceDeliveredEvent;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 #[AsEventListener(event: ResourceDeliveredEvent::class)]
-class InvoiceDeliveredListener
+final readonly class InvoiceDeliveredListener
 {
     public function __construct(
-        private readonly InvoiceRepositoryInterface $invoiceRepository
+        private InvoiceRepositoryInterface $invoiceRepository
     ) {}
 
     public function __invoke(ResourceDeliveredEvent $event): void
     {
-        $invoiceId = $event->resourceId->toString();
-        $invoice = $this->invoiceRepository->find($invoiceId);
+        $invoice = $this->invoiceRepository->find($event->resourceId->toString());
 
         if ($invoice) {
-            // Delegate state transition logic to the Domain Model
             $invoice->markAsSentToClient();
             $this->invoiceRepository->save($invoice);
         }

@@ -7,43 +7,19 @@ namespace Modules\Invoices\Domain\Models;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 
-/**
- * Invoice Product Line - Pure Domain Entity.
- * 
- * This is a child entity belonging to the Invoice aggregate.
- * It has NO infrastructure dependencies.
- */
-class InvoiceProductLine
+final class InvoiceProductLine
 {
-    private UuidInterface $id;
-    private Invoice $invoice;
-    private string $name;
-    private int $quantity;
-    private int $price;
-
     private function __construct(
-        UuidInterface $id,
-        Invoice $invoice,
-        string $name,
-        int $quantity,
-        int $price
-    ) {
-        $this->id = $id;
-        $this->invoice = $invoice;
-        $this->name = $name;
-        $this->quantity = $quantity;
-        $this->price = $price;
-    }
+        private readonly UuidInterface $id,
+        private readonly Invoice $invoice,
+        private readonly string $name,
+        private readonly int $quantity,
+        private readonly int $price
+    ) {}
 
     public static function create(Invoice $invoice, string $name, int $quantity, int $price): self
     {
-        return new self(
-            id: Uuid::uuid4(),
-            invoice: $invoice,
-            name: $name,
-            quantity: $quantity,
-            price: $price
-        );
+        return new self(Uuid::uuid4(), $invoice, $name, $quantity, $price);
     }
 
     public function getId(): UuidInterface

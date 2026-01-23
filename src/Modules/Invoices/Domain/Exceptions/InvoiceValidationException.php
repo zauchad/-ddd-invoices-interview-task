@@ -6,9 +6,6 @@ namespace Modules\Invoices\Domain\Exceptions;
 
 use DomainException;
 
-/**
- * Thrown when invoice data fails domain validation rules.
- */
 final class InvoiceValidationException extends DomainException
 {
     public static function emptyProductLines(): self
