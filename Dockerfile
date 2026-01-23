@@ -31,11 +31,19 @@ RUN echo '<Directory /var/www/html/public>\n\
 </Directory>' > /etc/apache2/conf-available/symfony.conf \
     && a2enconf symfony
 
+# Copy composer files
+COPY composer.json ./
+
+# Install dependencies
+RUN composer update --no-interaction --no-scripts --no-autoloader
+
 # Copy application
 COPY . .
 
-# Install dependencies
-RUN composer install --no-interaction --optimize-autoloader
+# Generate autoloader
+RUN composer dump-autoload --optimize
 
-# Set permissions
-RUN chown -R www-data:www-data var/
+# Create var directories and set permissions
+RUN mkdir -p var/cache var/log && \
+    chown -R www-data:www-data var/ && \
+    chmod -R 775 var/

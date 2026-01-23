@@ -9,6 +9,7 @@
         "symfony/runtime": "^7.2",
         "symfony/yaml": "^7.2",
         "symfony/dotenv": "^7.2",
+        "symfony/var-exporter": "^7.2",
         "doctrine/orm": "^3.3",
         "doctrine/doctrine-bundle": "^2.13",
         "doctrine/doctrine-migrations-bundle": "^3.4",
@@ -31,7 +32,7 @@
         "phpstan/phpstan-strict-rules": "^2.0",
         "vimeo/psalm": "^6.0",
         "psalm/plugin-symfony": "^5.2",
-        "qossmic/deptrac": "^2.0",
+        "deptrac/deptrac": "^2.0",
         "php-cs-fixer/shim": "^3.64"
     },
     "autoload": {
@@ -46,13 +47,6 @@
         }
     },
     "scripts": {
-        "auto-scripts": {
-            "cache:clear": "symfony-cmd",
-            "assets:install %PUBLIC_DIR%": "symfony-cmd"
-        },
-        "post-install-cmd": ["@auto-scripts"],
-        "post-update-cmd": ["@auto-scripts"],
-
         "test": "@php bin/phpunit",
         "test:unit": "@php bin/phpunit --testsuite=Unit",
         "test:integration": "@php bin/phpunit --testsuite=Integration",

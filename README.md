@@ -5,10 +5,39 @@ Symfony 7 + Doctrine with **true DDD** - domain entities have zero framework dep
 ## Quick Start
 
 ```bash
-make up              # Start containers
-make install         # Install dependencies
-make migrate         # Run migrations
-make ci              # Run full CI pipeline
+# Start application
+./start.sh
+
+# Or manually:
+docker compose up -d
+docker compose exec app composer install
+docker compose exec app php bin/console doctrine:migrations:migrate --no-interaction
+```
+
+## Run Commands
+
+All commands run inside Docker:
+
+```bash
+# Testing
+docker compose exec app composer test
+docker compose exec app composer test:unit
+docker compose exec app composer test:integration
+docker compose exec app composer test:functional
+docker compose exec app composer test:e2e
+
+# Analysis
+docker compose exec app composer phpstan
+docker compose exec app composer psalm
+docker compose exec app composer deptrac
+docker compose exec app composer analyse
+
+# Code Style
+docker compose exec app composer cs-check
+docker compose exec app composer cs-fix
+
+# Full CI
+docker compose exec app composer ci
 ```
 
 ## Architecture
@@ -31,40 +60,6 @@ src/Modules/Invoices/
 | Infrastructure | Domain, Application |
 | Presentation | Application, Api, Domain |
 | Api | Nothing |
-
-## Commands
-
-### Testing
-
-```bash
-make test              # All tests
-make test-unit         # Unit tests (no DB, no framework)
-make test-integration  # Integration tests (with DB)
-make test-functional   # HTTP endpoint tests
-make test-e2e          # Full workflow tests
-```
-
-### Static Analysis
-
-```bash
-make phpstan           # PHPStan level 9
-make psalm             # Psalm level 1
-make deptrac           # Architecture constraints
-make analyse           # All analysis tools
-```
-
-### Code Style
-
-```bash
-make cs-check          # Check style
-make cs-fix            # Fix style
-```
-
-### CI Pipeline
-
-```bash
-make ci                # cs-check → analyse → test
-```
 
 ## API Endpoints
 
