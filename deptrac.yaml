@@ -1,0 +1,80 @@
+deptrac:
+  paths:
+    - ./src
+
+  layers:
+    # Domain Layer - Pure business logic, NO framework dependencies
+    - name: Domain
+      collectors:
+        - type: directory
+          value: src/Modules/.*/Domain/.*
+
+    # Application Layer - Use case orchestration
+    - name: Application
+      collectors:
+        - type: directory
+          value: src/Modules/.*/Application/.*
+
+    # Infrastructure Layer - Framework integration, persistence
+    - name: Infrastructure
+      collectors:
+        - type: directory
+          value: src/Modules/.*/Infrastructure/.*
+
+    # Presentation Layer - HTTP controllers
+    - name: Presentation
+      collectors:
+        - type: directory
+          value: src/Modules/.*/Presentation/.*
+
+    # API Layer - Public contracts (DTOs, interfaces, events)
+    - name: Api
+      collectors:
+        - type: directory
+          value: src/Modules/.*/Api/.*
+
+    # Vendor dependencies
+    - name: Vendor
+      collectors:
+        - type: directory
+          value: vendor/.*
+
+  ruleset:
+    # Domain depends on NOTHING except basic PHP and value objects
+    Domain:
+      - Vendor  # Only for ramsey/uuid
+
+    # Application depends on Domain and Api
+    Application:
+      - Domain
+      - Api
+      - Vendor
+
+    # Infrastructure depends on Domain, Application
+    Infrastructure:
+      - Domain
+      - Application
+      - Vendor
+
+    # Presentation depends on Application, Api, Domain (for type hints)
+    Presentation:
+      - Application
+      - Api
+      - Domain
+      - Vendor
+
+    # Api has no internal dependencies
+    Api:
+      - Vendor
+
+  formatters:
+    graphviz:
+      hidden_layers:
+        - Vendor
+      groups:
+        Invoices:
+          - Domain
+          - Application
+          - Infrastructure
+          - Presentation
+          - Api

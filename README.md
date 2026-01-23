@@ -1,31 +1,70 @@
 # Invoice Module - DDD Modular Monolith
 
-Symfony 7 + Doctrine implementation with **true DDD** - domain entities have zero framework dependencies.
+Symfony 7 + Doctrine with **true DDD** - domain entities have zero framework dependencies.
+
+## Quick Start
+
+```bash
+make up              # Start containers
+make install         # Install dependencies
+make migrate         # Run migrations
+make ci              # Run full CI pipeline
+```
 
 ## Architecture
 
 ```
 src/Modules/Invoices/
-├── Domain/           # Pure PHP - NO framework deps
+├── Domain/           # Pure PHP - NO framework dependencies
 ├── Application/      # Use case orchestration  
 ├── Infrastructure/   # Doctrine, external services
 ├── Presentation/     # Symfony controllers
 └── Api/              # Public DTOs & interfaces
 ```
 
-### Key Principle
+### Layer Rules (enforced by Deptrac)
 
-Domain entities are pure PHP objects - no Eloquent, no Doctrine annotations:
+| Layer | Can Depend On |
+|-------|---------------|
+| Domain | Nothing (pure PHP) |
+| Application | Domain, Api |
+| Infrastructure | Domain, Application |
+| Presentation | Application, Api, Domain |
+| Api | Nothing |
 
-```php
-final class Invoice
-{
-    public static function create(string $name, string $email): self { ... }
-    public function markAsSending(): void { ... }  // Business rules here
-}
+## Commands
+
+### Testing
+
+```bash
+make test              # All tests
+make test-unit         # Unit tests (no DB, no framework)
+make test-integration  # Integration tests (with DB)
+make test-functional   # HTTP endpoint tests
+make test-e2e          # Full workflow tests
 ```
 
-Persistence via external XML mapping in Infrastructure layer.
+### Static Analysis
+
+```bash
+make phpstan           # PHPStan level 9
+make psalm             # Psalm level 1
+make deptrac           # Architecture constraints
+make analyse           # All analysis tools
+```
+
+### Code Style
+
+```bash
+make cs-check          # Check style
+make cs-fix            # Fix style
+```
+
+### CI Pipeline
+
+```bash
+make ci                # cs-check → analyse → test
+```
 
 ## API Endpoints
 
@@ -36,14 +75,12 @@ Persistence via external XML mapping in Infrastructure layer.
 | POST | `/api/invoices/{id}/send` | Send invoice |
 | GET | `/api/notification/hook/delivered/{id}` | Delivery webhook |
 
-## Setup
+## Test Structure
 
-```bash
-./start.sh
 ```
-
-## Tests
-
-```bash
-docker compose exec app php bin/phpunit
+tests/
+├── Unit/           # Pure logic, no framework, no DB
+├── Integration/    # Repository + DB tests
+├── Functional/     # HTTP endpoint tests
+└── E2E/            # Complete workflow tests
 ```

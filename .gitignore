@@ -3,7 +3,5 @@
 /.env.local
 /.env.*.local
 /.phpunit.cache/
+/.php-cs-fixer.cache
 /public/bundles/
-###> doctrine/doctrine-bundle ###
-/migrations/*.php
-###< doctrine/doctrine-bundle ###

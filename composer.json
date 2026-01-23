@@ -24,7 +24,15 @@
         "symfony/browser-kit": "^7.2",
         "symfony/css-selector": "^7.2",
         "doctrine/doctrine-fixtures-bundle": "^4.0",
-        "dama/doctrine-test-bundle": "^8.2"
+        "dama/doctrine-test-bundle": "^8.2",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-symfony": "^2.0",
+        "phpstan/phpstan-doctrine": "^2.0",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "vimeo/psalm": "^6.0",
+        "psalm/plugin-symfony": "^5.2",
+        "qossmic/deptrac": "^2.0",
+        "php-cs-fixer/shim": "^3.64"
     },
     "autoload": {
         "psr-4": {
@@ -42,12 +50,23 @@
             "cache:clear": "symfony-cmd",
             "assets:install %PUBLIC_DIR%": "symfony-cmd"
         },
-        "post-install-cmd": [
-            "@auto-scripts"
-        ],
-        "post-update-cmd": [
-            "@auto-scripts"
-        ]
+        "post-install-cmd": ["@auto-scripts"],
+        "post-update-cmd": ["@auto-scripts"],
+
+        "test": "@php bin/phpunit",
+        "test:unit": "@php bin/phpunit --testsuite=Unit",
+        "test:integration": "@php bin/phpunit --testsuite=Integration",
+        "test:functional": "@php bin/phpunit --testsuite=Functional",
+        "test:e2e": "@php bin/phpunit --testsuite=E2E",
+
+        "phpstan": "phpstan analyse --memory-limit=512M",
+        "psalm": "psalm --no-cache",
+        "deptrac": "deptrac analyse --config-file=deptrac.yaml",
+        "cs-fix": "php-cs-fixer fix",
+        "cs-check": "php-cs-fixer fix --dry-run --diff",
+
+        "analyse": ["@phpstan", "@psalm", "@deptrac"],
+        "ci": ["@cs-check", "@analyse", "@test"]
     },
     "config": {
         "optimize-autoloader": true,
